@@ -70,6 +70,7 @@ def is_valid_title(title):
 
 #A function to get all the data on the page and process it
 def process_data_on_page():
+  print("Processing")
   products_main = driver.find_element_by_class_name("s-main-slot")
   amazon_products = products_main.find_elements_by_class_name("s-result-item")
   my_products = []
@@ -86,19 +87,27 @@ def process_data_on_page():
       #If title is valid, creating a product object and storing in my products list
       if is_valid_title(title):
         try:
-          #Get discount price
-          discount_price_element = WebDriverWait(product, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, "span.a-price")))
+          #Get prices available(previous and discounted)
+          price_elements = WebDriverWait(product, 2).until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "span.a-price")))
+
+          #Getting the current price
+          discount_price_element = price_elements[0]
           discount_price_info = discount_price_element.text.split("\n")
           discount_price = float(discount_price_info[0][1:] + "." + discount_price_info[1])
+
+          #Getting previous price, if one exists
+          if len(price_elements) == 1:
+            #No previous price
+            previous_price = discount_price
+          else:
+            #Previous price exists
+            previous_price_element = price_elements[1]
+            previous_price = float(previous_price_element.text[1:])
         except:
           continue
 
-        try:
-          #Get previous price
-          previous_price_element = WebDriverWait(product, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, "span.a-price[data-a-strike='true']")))
-          previous_price = float(previous_price_element.text[1:])
-        except:
-          previous_price = discount_price
+        #Printing discount and previous price
+        print("Title: " + title[0:10] + ", Discount: " + str(discount_price) + ", Previous: " + str(previous_price))
         
         #Create product object and add to list
         my_products.append(myproduct.Product(title, previous_price, discount_price))
@@ -106,7 +115,7 @@ def process_data_on_page():
   return my_products
 
 #Retreiving amazon's non customized search results
-time.sleep(3)
+time.sleep(2)
 my_products = process_data_on_page()
 
 #Check all the deals checkboxes to load the pages with the best deals
@@ -121,7 +130,8 @@ except:
   #do nothing if no deals
   pass
 
-#Retreiving amazon's deals search results
+#Retreiving amazon's deals search results and appending to list
+time.sleep(2)
 my_products.extend(process_data_on_page())
 
 #Finding cheapest product and product with best deal
@@ -137,7 +147,7 @@ for product in my_products:
     cheapest_product = product
     cheapest_price = product.get_price()
   
-  if not best_deal_product or product.get_discount() > cheapest_product.get_discount():
+  if not best_deal_product or product.get_discount() > best_deal_product.get_discount():
     best_deal_product = product
     best_discount = product.get_discount()
 
