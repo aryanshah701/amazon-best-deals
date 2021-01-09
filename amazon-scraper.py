@@ -10,7 +10,7 @@ import functools
 import sys
 
 #Web driver config
-PATH = "/usr/local/bin/chromedriver"
+PATH = "./chromedriver"
 driver = webdriver.Chrome(PATH)
 
 #Parsing command line input
