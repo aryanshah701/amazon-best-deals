@@ -9,11 +9,11 @@ import time
 import functools
 import sys
 
-#Config
+#Web driver config
 PATH = "/usr/local/bin/chromedriver"
 driver = webdriver.Chrome(PATH)
 
-#Parse search product name
+#Parsing command line input
 search_product = ""
 for i in range(1, len(sys.argv)):
   search_product += sys.argv[i] + " "
@@ -32,7 +32,7 @@ search_box.clear()
 search_box.send_keys(PRODUCT)
 search_box.send_keys(Keys.RETURN)
 
-print("Getting and processing data")
+print("Getting data")
 
 #A function to create a Set of words in the title
 def create_word_set(title):
@@ -70,7 +70,6 @@ def is_valid_title(title):
 
 #A function to get all the data on the page and process it
 def process_data_on_page():
-  print("Processing")
   products_main = driver.find_element_by_class_name("s-main-slot")
   amazon_products = products_main.find_elements_by_class_name("s-result-item")
   my_products = []
@@ -105,23 +104,46 @@ def process_data_on_page():
             previous_price = float(previous_price_element.text[1:])
         except:
           continue
-
-        #Printing discount and previous price
-        print("Title: " + title[0:10] + ", Discount: " + str(discount_price) + ", Previous: " + str(previous_price))
         
         #Create product object and add to list
         my_products.append(myproduct.Product(title, previous_price, discount_price))
   
   return my_products
 
-#Retreiving amazon's non customized search results
-time.sleep(2)
-my_products = process_data_on_page()
+#A function to vist the next page
+def visit_next_page():
+  try:
+    pagination = driver.find_element_by_css_selector("ul.a-pagination")
+    next_page_button = pagination.find_element_by_css_selector("li.a-selected + li.a-normal")
+    next_page_button.click()
 
-#Check all the deals checkboxes to load the pages with the best deals
-driver.implicitly_wait(2)
+    #Visiting next page succeeded
+    return True
+
+  except:
+    #Visiting next page failed
+    return False
+
+#Retreiving amazon's non customized search results uptill 10 pages
+my_products = []
+for i in range(10):
+  time.sleep(1)
+
+  #If not on first page, click on next page
+  if i != 0:
+    successfull_click = visit_next_page()
+    if not successfull_click:
+      break
+
+  #Get products on current page and append
+  print("Visiting Page " + str(i + 1))
+  my_products.extend(process_data_on_page())
+
+
+#Checking all the deals checkboxes to load the pages with the best deals
+driver.implicitly_wait(1)
 try:
-  deals_container = WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, "ul[aria-labelledby=p_n_specials_match-title]")))
+  deals_container = WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "ul[aria-labelledby=p_n_specials_match-title]")))
   deals = deals_container.find_elements_by_tag_name("a")
 
   for deal in deals:
@@ -131,11 +153,12 @@ except:
   pass
 
 #Retreiving amazon's deals search results and appending to list
-time.sleep(2)
+print("Visiting Amazon Deals Page")
+time.sleep(1)
 my_products.extend(process_data_on_page())
 
 #Finding cheapest product and product with best deal
-print("Finding best deal and cheapest product")
+print("Looking for the cheapest product and the product with best deal")
 
 cheapest_product = None
 cheapest_price = 0
@@ -151,13 +174,44 @@ for product in my_products:
     best_deal_product = product
     best_discount = product.get_discount()
 
-print("Finished!")
-print("---------------------------------------")
-print("Here are your results!")
+print("Finished!\n")
+
+#Printing results
+
+#Function to print a line
+def print_line():
+  print("---------------------------------------")
+
+#Function to print a product
+def print_product(product, price):
+  print("Product Title: {0}\n".format(product.get_title()))
+  print("Current Price: ${0}\n".format(product.get_price()))
+  print("Previous Price: ${0}\n".format(product.get_previous_price()))
+  print("Discount: ${0}\n".format(product.get_discount()))
+
+print_line()
+print_line()
+print("Here are your results!!")
+print_line()
+print_line()
+
 if not my_products:
+  #If there are no results
   print("Sorry, no available results match... try lowering the number of key words")
 else:
-  print("Cheapest product: {0}, Price: ${1}".format(cheapest_product.get_title(), cheapest_price))
-  print("Best deal: {0}, Previous Price: ${1}, Discount: ${2}".format(best_deal_product.get_title(), best_deal_product.get_previous_price(), best_discount))
+  print("\nLooked at a total of {0} products\n".format(len(my_products)))
+
+  print_line()
+  print("CHEAPEST PRODUCT")
+  print_line()
+  print()
+  print_product(cheapest_product, cheapest_price)
+
+  print_line()
+  print("BEST DEAL")
+  print_line()
+  print()
+  print_product(best_deal_product, best_deal_product.get_price())
+  
 
   
