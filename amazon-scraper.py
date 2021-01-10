@@ -176,6 +176,9 @@ for product in my_products:
 
 print("Finished!\n")
 
+#Quit Driver
+driver.quit()
+
 #Printing results
 
 #Function to print a line
